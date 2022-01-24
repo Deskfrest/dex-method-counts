@@ -28,8 +28,8 @@ public class DexMethodCounts extends DexCount {
     }
 
     @Override
-    public void generate(DexData dexData, boolean includeClasses, String packageFilter, int maxDepth, Filter filter) {
-        MethodRef[] methodRefs = getMethodRefs(dexData, filter);
+    public void generate(DexData dexData,String dex_num, boolean includeClasses, String packageFilter, int maxDepth, Filter filter) {
+        MethodRef[] methodRefs = getMethodRefs(dexData,dex_num, filter);
 
         for (MethodRef methodRef : methodRefs) {
             String classDescriptor = methodRef.getDeclClassName();
@@ -72,9 +72,9 @@ public class DexMethodCounts extends DexCount {
         }
     }
 
-    private static MethodRef[] getMethodRefs(DexData dexData, Filter filter) {
+    private static MethodRef[] getMethodRefs(DexData dexData,String dex_num, Filter filter) {
         MethodRef[] methodRefs = dexData.getMethodRefs();
-        out.println("Read in " + methodRefs.length + " method IDs.");
+        out.println("Read in " + "${"+methodRefs.length +"}"+ " method IDs ${"+dex_num+"}");
         if (filter == Filter.ALL) {
             return methodRefs;
         }

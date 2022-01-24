@@ -22,9 +22,13 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -56,13 +60,15 @@ public class Main {
                 } else {
                     counts = new DexMethodCounts(outputStyle);
                 }
-                List<RandomAccessFile> dexFiles = openInputFiles(fileName);
+                ArrayList dexFiles = openInputFiles(fileName);
 
-                for (RandomAccessFile dexFile : dexFiles) {
-                    DexData dexData = new DexData(dexFile);
+                for (Object dexFile : dexFiles) {
+                    Map<String,Object> m_map= (Map<String, Object>) dexFile;
+                    RandomAccessFile randomAccessFile=(RandomAccessFile) m_map.get("dexFile");
+                    DexData dexData = new DexData(randomAccessFile);
                     dexData.load();
-                    counts.generate(dexData, includeClasses, packageFilter, maxDepth, filter);
-                    dexFile.close();
+                    counts.generate(dexData,String.valueOf(m_map.get("dex_num")) ,includeClasses, packageFilter, maxDepth, filter);
+                    randomAccessFile.close();
                 }
                 counts.output();
                 overallCount = counts.getOverallCount();
@@ -87,15 +93,17 @@ public class Main {
      * classes.dex inside.  If the latter, we extract the contents to a
      * temporary file.
      */
-    List<RandomAccessFile> openInputFiles(String fileName) throws IOException {
-        List<RandomAccessFile> dexFiles = new ArrayList<RandomAccessFile>();
+    ArrayList openInputFiles(String fileName) throws IOException {
+        ArrayList dexFiles = new ArrayList();
 
         openInputFileAsZip(fileName, dexFiles);
         if (dexFiles.size() == 0) {
             File inputFile = new File(fileName);
             RandomAccessFile dexFile = new RandomAccessFile(inputFile, "r");
+
             dexFiles.add(dexFile);
         }
+
 
         return dexFiles;
     }
@@ -104,9 +112,9 @@ public class Main {
      * Tries to open an input file as a Zip archive (jar/apk) with a
      * "classes.dex" inside.
      */
-    void openInputFileAsZip(String fileName, List<RandomAccessFile> dexFiles) throws IOException {
+    String openInputFileAsZip(String fileName, ArrayList dexFiles) throws IOException {
         ZipFile zipFile;
-
+        String dex_num="";
         // Try it as a zip file.
         try {
             zipFile = new ZipFile(fileName);
@@ -117,22 +125,28 @@ public class Main {
             throw fnfe;
         } catch (ZipException ze) {
             // not a zip
-            return;
+            return dex_num;
         }
 
         // Open and add all files matching "classes.*\.dex" in the zip file.
         for (ZipEntry entry : Collections.list(zipFile.entries())) {
             if (entry.getName().matches("classes.*\\.dex")) {
                 Pattern pattern = Pattern.compile("classes(\\d+)\\.dex");
-                Matcher dex_num = pattern.matcher(entry.getName());
-                if(dex_num.find()){
-                    System.out.println("&&&&&&******"+dex_num.group(1));
+                Matcher dex_num_matcher = pattern.matcher(entry.getName());
+                if(dex_num_matcher.find()){
+                    dex_num=dex_num_matcher.group(1);
+                }else{
+                    dex_num="0";
                 }
-                dexFiles.add(openDexFile(zipFile, entry));
+                Map<String,Object>m_map=new HashMap<>();
+                m_map.put("dex_num",dex_num);
+                m_map.put("dexFile",openDexFile(zipFile, entry));
+                dexFiles.add(m_map);
             }
         }
 
         zipFile.close();
+        return dex_num;
     }
 
     RandomAccessFile openDexFile(ZipFile zipFile, ZipEntry entry) throws IOException {
@@ -243,5 +257,22 @@ public class Main {
     }
 
     private static class UsageException extends RuntimeException {
+    }
+
+    //Object转Map
+    public static Map<String, Object> getObjectToMap(Object obj) throws IllegalAccessException {
+        Map<String, Object> map = new LinkedHashMap<String, Object>();
+        Class<?> clazz = obj.getClass();
+        System.out.println(clazz);
+        for (Field field : clazz.getDeclaredFields()) {
+            field.setAccessible(true);
+            String fieldName = field.getName();
+            Object value = field.get(obj);
+            if (value == null){
+                value = "";
+            }
+            map.put(fieldName, value);
+        }
+        return map;
     }
 }

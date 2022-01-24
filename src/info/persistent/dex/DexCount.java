@@ -37,7 +37,7 @@ public abstract class DexCount {
     }
 
     public abstract void generate(
-            DexData dexData, boolean includeClasses, String packageFilter, int maxDepth, Filter filter);
+            DexData dexData,String dex_num, boolean includeClasses, String packageFilter, int maxDepth, Filter filter);
 
     class IntHolder {
 
